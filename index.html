@@ -6,7 +6,7 @@
     <title>神經科學反應力研究中心 - Neuro-Reaction System</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&display=swap" rel="stylesheet">
-    <!-- 加入 Supabase CDN -->
+    <!-- 加入 Supabase SDK -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <style>
         body {
@@ -94,24 +94,32 @@
                 if (!user) return;
 
                 const payload = {
-                    phone_number: user.phone,
-                    surname: user.surname,
+                    Phone_number: user.phone,
+                    Surname: user.surname,
                 };
 
-                // Map results to the specific columns requested
+                // 精確對應 Supabase 表格欄位名稱
                 if (gameId === 'TIMER') {
-                    payload['Stop watch accuracy'] = parseFloat(stats.diff.toFixed(3));
+                    payload['Stop_watch_accuracy'] = parseFloat(stats.diff.toFixed(3));
                 } else if (gameId === 'COLOR_BASIC') {
-                    payload['Color game accuracy percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
+                    payload['Color_game_accuracy_percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
                 } else if (gameId === 'COLOR_ADVANCED') {
-                    payload['Visual guide color game accuracy percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
+                    payload['Visual_guide_color_game_accuracy_percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
                 }
 
-                const { error } = await supabaseClient
-                    .from('React Time')
-                    .insert([payload]);
+                console.log('正在傳送數據至 Supabase:', payload);
 
-                if (error) console.error('Error saving data to Supabase:', error);
+                const { data, error } = await supabaseClient
+                    .from('React Time')
+                    .insert([payload])
+                    .select();
+
+                if (error) {
+                    console.error('Supabase 儲存錯誤:', error.message);
+                    alert('儲存失敗：' + error.message);
+                } else {
+                    console.log('數據儲存成功:', data);
+                }
                 return !error;
             },
             loadAllRecords: async () => {
@@ -124,7 +132,7 @@
                     if (error) throw error;
                     return data || [];
                 } catch (error) {
-                    console.error('Error loading data from Supabase:', error);
+                    console.error('Supabase 讀取錯誤:', error.message);
                     return [];
                 }
             }
@@ -142,7 +150,7 @@
                         </div>
                         <div className="flex flex-col">
                             <h1 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-tight leading-tight">神經科學研究中心</h1>
-                            <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.1</p>
+                            <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.2</p>
                         </div>
                     </div>
                     {user && (
@@ -188,7 +196,7 @@
                                 </svg>
                             </div>
                             <h2 className="text-2xl font-black text-slate-800 mb-2">受試者登錄</h2>
-                            <p className="text-slate-400 text-sm">數據將自動同步至 Supabase 研究數據庫</p>
+                            <p className="text-slate-400 text-sm">數據將自動同步至 Supabase 雲端</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
@@ -236,7 +244,7 @@
                             <span className="mr-2">💡</span> 研究指令
                         </h2>
                         <p className="text-blue-700 text-xs leading-relaxed opacity-80 font-medium">
-                            {user.surname} 先生/女士，請選擇一個實驗項目。數據庫目前儲存了 {records.length} 筆紀錄。
+                            {user.surname} 先生/女士，請完成實驗項目。數據會自動儲存至 Supabase 數據表。
                         </p>
                     </div>
 
@@ -254,7 +262,7 @@
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                             <div className="flex items-center space-x-2">
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Supabase 研究數據表</h3>
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Supabase 即時數據庫</h3>
                             </div>
                             <button 
                                 onClick={fetchRecords} 
@@ -263,16 +271,16 @@
                                 <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                                 </svg>
-                                <span>重新整理數據庫</span>
+                                <span>重新整理</span>
                             </button>
                         </div>
                         
                         <div className="overflow-x-auto custom-scrollbar">
-                            <div className="min-w-[800px] max-h-[500px] overflow-y-auto">
+                            <div className="min-w-[900px] max-h-[500px] overflow-y-auto">
                                 <table className="record-table">
                                     <thead>
                                         <tr>
-                                            <th>受試者姓氏</th>
+                                            <th>姓氏</th>
                                             <th>電話號碼</th>
                                             <th>計時誤差 (s)</th>
                                             <th>顏色反應 (%)</th>
@@ -283,30 +291,30 @@
                                     <tbody>
                                         {isLoading && records.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="text-center py-20 text-slate-400 font-bold animate-pulse">正在同步 Supabase 雲端數據...</td>
+                                                <td colSpan="6" className="text-center py-20 text-slate-400 font-bold animate-pulse">正在同步雲端數據...</td>
                                             </tr>
                                         ) : records.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="text-center py-20 text-slate-400">目前數據庫暫無紀錄</td>
+                                                <td colSpan="6" className="text-center py-20 text-slate-400">數據庫目前為空</td>
                                             </tr>
                                         ) : (
                                             records.map((r, idx) => (
                                                 <tr key={r.id || idx}>
-                                                    <td className="font-bold text-slate-900">{r.surname}</td>
-                                                    <td className="font-mono text-slate-500">{r.phone_number}</td>
+                                                    <td className="font-bold text-slate-900">{r.Surname}</td>
+                                                    <td className="font-mono text-slate-500">{r.Phone_number}</td>
                                                     <td className="font-bold">
-                                                        {r['Stop watch accuracy'] !== null ? (
-                                                            <span className="text-indigo-600">{r['Stop watch accuracy']}s</span>
+                                                        {r['Stop_watch_accuracy'] !== null ? (
+                                                            <span className="text-indigo-600">{r['Stop_watch_accuracy']}s</span>
                                                         ) : <span className="text-slate-200">-</span>}
                                                     </td>
                                                     <td className="font-bold">
-                                                        {r['Color game accuracy percentage'] !== null ? (
-                                                            <span className="text-emerald-600">{r['Color game accuracy percentage']}%</span>
+                                                        {r['Color_game_accuracy_percentage'] !== null ? (
+                                                            <span className="text-emerald-600">{r['Color_game_accuracy_percentage']}%</span>
                                                         ) : <span className="text-slate-200">-</span>}
                                                     </td>
                                                     <td className="font-bold">
-                                                        {r['Visual guide color game accuracy percentage'] !== null ? (
-                                                            <span className="text-amber-600">{r['Visual guide color game accuracy percentage']}%</span>
+                                                        {r['Visual_guide_color_game_accuracy_percentage'] !== null ? (
+                                                            <span className="text-amber-600">{r['Visual_guide_color_game_accuracy_percentage']}%</span>
                                                         ) : <span className="text-slate-200">-</span>}
                                                     </td>
                                                     <td className="text-[11px] text-slate-400 font-medium">
@@ -362,11 +370,11 @@
             return (
                 <div className="max-w-xl mx-auto animate-fade-in bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-2xl text-center">
                     <div className="flex justify-between items-center mb-8">
-                        <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase tracking-widest transition-colors">← 返回儀表板</button>
-                        {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">數據同步中...</span>}
+                        <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase transition-colors">← 返回儀表板</button>
+                        {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">同步數據至 Supabase...</span>}
                     </div>
                     <div className="mb-10 bg-slate-50 py-8 rounded-3xl border border-slate-100 shadow-inner">
-                        <p className="text-slate-400 text-xs font-bold uppercase mb-2">實驗目標</p>
+                        <p className="text-slate-400 text-xs font-bold uppercase mb-2">目標時間</p>
                         <p className="text-6xl font-black text-slate-800 tracking-tighter">7.77 <span className="text-2xl font-bold opacity-30">SEC</span></p>
                     </div>
                     <div className="relative h-64 flex flex-col items-center justify-center mb-10">
@@ -457,7 +465,7 @@
                     <div className="flex justify-between items-center mb-8">
                         <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase transition-colors">← 返回</button>
                         <div className="flex items-center space-x-3">
-                            {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">數據同步中...</span>}
+                            {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">雲端存檔中...</span>}
                             <div className="bg-blue-50 px-4 py-1 rounded-full text-blue-600 font-black tabular-nums text-sm">{timeLeft}S</div>
                         </div>
                     </div>
@@ -465,7 +473,7 @@
                     {gameState === 'IDLE' ? (
                         <div className="py-16">
                             <h2 className="text-2xl font-black text-slate-800 mb-4">{isAdvanced ? '進階認知引導測試' : '基礎顏色反應測試'}</h2>
-                            <button onClick={start} className="bg-indigo-600 text-white px-12 py-5 rounded-3xl font-black text-xl shadow-xl transition-all active:scale-95">開始 20秒 實驗</button>
+                            <button onClick={start} className="bg-indigo-600 text-white px-12 py-5 rounded-3xl font-black text-xl shadow-xl transition-all active:scale-95">開始測試</button>
                         </div>
                     ) : gameState === 'PLAYING' ? (
                         <div className="flex flex-col items-center">
@@ -484,10 +492,10 @@
                         </div>
                     ) : (
                         <div className="py-6 animate-fade-in">
-                            <h3 className="text-2xl font-black text-slate-900 mb-8">實驗完成並上傳</h3>
+                            <h3 className="text-2xl font-black text-slate-900 mb-8">數據採集完成</h3>
                             <div className="grid grid-cols-3 gap-4 mb-10">
                                 <div className="bg-emerald-50 p-5 rounded-3xl border border-emerald-100"><p className="text-emerald-600 text-[10px] font-bold uppercase mb-1">正確</p><p className="text-4xl font-black text-emerald-700">{stats.hits}</p></div>
-                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100"><p className="text-slate-600 text-[10px] font-bold uppercase mb-1">目標</p><p className="text-4xl font-black text-slate-700">{stats.total}</p></div>
+                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100"><p className="text-slate-600 text-[10px] font-bold uppercase mb-1">目標數</p><p className="text-4xl font-black text-slate-700">{stats.total}</p></div>
                                 <div className="bg-red-50 p-5 rounded-3xl border border-red-100"><p className="text-red-600 text-[10px] font-bold uppercase mb-1">錯誤</p><p className="text-4xl font-black text-red-700">{stats.errors}</p></div>
                             </div>
                             <button onClick={start} className="bg-slate-900 text-white px-12 py-5 rounded-3xl font-black text-lg shadow-xl hover:bg-black transition-all">重新測試</button>
