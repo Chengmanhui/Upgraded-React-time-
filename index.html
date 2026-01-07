@@ -17,9 +17,16 @@
         }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
-        .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+        .custom-scrollbar::-webkit-scrollbar { width: 6px; height: 6px; }
         .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
         .custom-scrollbar::-webkit-scrollbar-thumb { background: #e2e8f0; border-radius: 10px; }
+        
+        /* Table Styles */
+        .record-table { width: 100%; border-collapse: separate; border-spacing: 0; }
+        .record-table th { position: sticky; top: 0; background: #f1f5f9; z-index: 10; padding: 12px 16px; text-align: left; font-size: 10px; font-weight: 900; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; }
+        .record-table td { padding: 16px; font-size: 13px; color: #334155; border-bottom: 1px solid #f1f5f9; }
+        .record-table tr:hover td { background-color: #f8fafc; }
+        .record-table tr:last-child td { border-bottom: none; }
     </style>
     <!-- Babel standalone for JSX support -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
@@ -108,16 +115,18 @@
                 return !error;
             },
             loadAllRecords: async () => {
-                const { data, error } = await supabaseClient
-                    .from('React Time')
-                    .select('*')
-                    .order('created_at', { ascending: false });
-                
-                if (error) {
+                try {
+                    const { data, error } = await supabaseClient
+                        .from('React Time')
+                        .select('*')
+                        .order('created_at', { ascending: false });
+                    
+                    if (error) throw error;
+                    return data || [];
+                } catch (error) {
                     console.error('Error loading data from Supabase:', error);
                     return [];
                 }
-                return data;
             }
         };
 
@@ -133,7 +142,7 @@
                         </div>
                         <div className="flex flex-col">
                             <h1 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-tight leading-tight">神經科學研究中心</h1>
-                            <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.0</p>
+                            <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.1</p>
                         </div>
                     </div>
                     {user && (
@@ -203,14 +212,22 @@
             const [records, setRecords] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
 
+            const fetchRecords = async () => {
+                setIsLoading(true);
+                const data = await DataService.loadAllRecords();
+                setRecords(data);
+                setIsLoading(false);
+            };
+
             useEffect(() => {
-                const fetchRecords = async () => {
-                    const data = await DataService.loadAllRecords();
-                    setRecords(data);
-                    setIsLoading(false);
-                };
                 fetchRecords();
             }, []);
+
+            const formatDate = (dateStr) => {
+                if (!dateStr) return '-';
+                const d = new Date(dateStr);
+                return d.toLocaleString('zh-HK', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', hour12: false });
+            };
 
             return (
                 <div className="space-y-8 animate-fade-in">
@@ -219,7 +236,7 @@
                             <span className="mr-2">💡</span> 研究指令
                         </h2>
                         <p className="text-blue-700 text-xs leading-relaxed opacity-80 font-medium">
-                            {user.surname} 先生/女士，請選擇一個實驗項目進行測量。所有數據將即時上傳至 Supabase。
+                            {user.surname} 先生/女士，請選擇一個實驗項目。數據庫目前儲存了 {records.length} 筆紀錄。
                         </p>
                     </div>
 
@@ -235,32 +252,72 @@
 
                     <div className="bg-white rounded-3xl border border-slate-200 overflow-hidden shadow-sm">
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
-                            <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Supabase 全體紀錄庫</h3>
-                            <button onClick={async () => { setIsLoading(true); setRecords(await DataService.loadAllRecords()); setIsLoading(false); }} className="text-xs font-bold text-indigo-600 hover:underline">重新整理</button>
+                            <div className="flex items-center space-x-2">
+                                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Supabase 研究數據表</h3>
+                            </div>
+                            <button 
+                                onClick={fetchRecords} 
+                                className="flex items-center space-x-1 px-3 py-1 bg-indigo-50 text-indigo-600 rounded-full text-xs font-bold hover:bg-indigo-100 transition-colors"
+                            >
+                                <svg xmlns="http://www.w3.org/2000/svg" className={`h-3 w-3 ${isLoading ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                <span>重新整理數據庫</span>
+                            </button>
                         </div>
-                        <div className="max-h-80 overflow-y-auto custom-scrollbar p-6">
-                            {isLoading ? (
-                                <div className="py-10 text-center text-slate-400 text-xs font-bold animate-pulse">正在載入雲端數據...</div>
-                            ) : records.length === 0 ? (
-                                <div className="py-10 text-center text-slate-400 text-xs">暫無任何實驗紀錄</div>
-                            ) : (
-                                <div className="space-y-3">
-                                    {records.map((r, idx) => (
-                                        <div key={idx} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-100 text-xs">
-                                            <div className="mb-2 sm:mb-0">
-                                                <span className="font-black text-slate-800">{r.surname}</span> 
-                                                <span className="mx-2 text-slate-300">|</span> 
-                                                <span className="font-mono text-slate-500">{r.phone_number}</span>
-                                            </div>
-                                            <div className="flex flex-wrap gap-2">
-                                                {r['Stop watch accuracy'] !== null && <span className="px-2 py-1 bg-indigo-50 text-indigo-700 rounded-lg font-bold border border-indigo-100">計時: {r['Stop watch accuracy']}s</span>}
-                                                {r['Color game accuracy percentage'] !== null && <span className="px-2 py-1 bg-emerald-50 text-emerald-700 rounded-lg font-bold border border-emerald-100">顏色: {r['Color game accuracy percentage']}%</span>}
-                                                {r['Visual guide color game accuracy percentage'] !== null && <span className="px-2 py-1 bg-amber-50 text-amber-700 rounded-lg font-bold border border-amber-100">視覺引導: {r['Visual guide color game accuracy percentage']}%</span>}
-                                            </div>
-                                        </div>
-                                    ))}
-                                </div>
-                            )}
+                        
+                        <div className="overflow-x-auto custom-scrollbar">
+                            <div className="min-w-[800px] max-h-[500px] overflow-y-auto">
+                                <table className="record-table">
+                                    <thead>
+                                        <tr>
+                                            <th>受試者姓氏</th>
+                                            <th>電話號碼</th>
+                                            <th>計時誤差 (s)</th>
+                                            <th>顏色反應 (%)</th>
+                                            <th>視覺引導 (%)</th>
+                                            <th>紀錄時間</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        {isLoading && records.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="6" className="text-center py-20 text-slate-400 font-bold animate-pulse">正在同步 Supabase 雲端數據...</td>
+                                            </tr>
+                                        ) : records.length === 0 ? (
+                                            <tr>
+                                                <td colSpan="6" className="text-center py-20 text-slate-400">目前數據庫暫無紀錄</td>
+                                            </tr>
+                                        ) : (
+                                            records.map((r, idx) => (
+                                                <tr key={r.id || idx}>
+                                                    <td className="font-bold text-slate-900">{r.surname}</td>
+                                                    <td className="font-mono text-slate-500">{r.phone_number}</td>
+                                                    <td className="font-bold">
+                                                        {r['Stop watch accuracy'] !== null ? (
+                                                            <span className="text-indigo-600">{r['Stop watch accuracy']}s</span>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                    </td>
+                                                    <td className="font-bold">
+                                                        {r['Color game accuracy percentage'] !== null ? (
+                                                            <span className="text-emerald-600">{r['Color game accuracy percentage']}%</span>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                    </td>
+                                                    <td className="font-bold">
+                                                        {r['Visual guide color game accuracy percentage'] !== null ? (
+                                                            <span className="text-amber-600">{r['Visual guide color game accuracy percentage']}%</span>
+                                                        ) : <span className="text-slate-200">-</span>}
+                                                    </td>
+                                                    <td className="text-[11px] text-slate-400 font-medium">
+                                                        {formatDate(r.created_at)}
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
                         </div>
                     </div>
                 </div>
