@@ -98,37 +98,33 @@
                     Surname: user.surname,
                 };
 
-                // 精確對應 Supabase 表格欄位名稱
                 if (gameId === 'TIMER') {
                     payload['Stop_watch_accuracy'] = parseFloat(stats.diff.toFixed(3));
                 } else if (gameId === 'COLOR_BASIC') {
-                    payload['Color_game_accuracy_percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
+                    const accuracy = Math.max(0, ((stats.hits - stats.errors) / Math.max(1, stats.total)) * 100);
+                    payload['Color_game_accuracy_percentage'] = parseFloat(accuracy.toFixed(2));
                 } else if (gameId === 'COLOR_ADVANCED') {
-                    payload['Visual_guide_color_game_accuracy_percentage'] = parseFloat(((stats.hits / Math.max(1, stats.total)) * 100).toFixed(2));
+                    const accuracy = Math.max(0, ((stats.hits - stats.errors) / Math.max(1, stats.total)) * 100);
+                    payload['Visual_guide_color_game_accuracy_percentage'] = parseFloat(accuracy.toFixed(2));
                 }
 
-                console.log('正在傳送數據至 Supabase:', payload);
-
-                const { data, error } = await supabaseClient
+                const { error } = await supabaseClient
                     .from('React Time')
-                    .insert([payload])
-                    .select();
+                    .insert([payload]);
 
-                if (error) {
-                    console.error('Supabase 儲存錯誤:', error.message);
-                    alert('儲存失敗：' + error.message);
-                } else {
-                    console.log('數據儲存成功:', data);
-                }
+                if (error) console.error('Supabase 儲存錯誤:', error.message);
                 return !error;
             },
-            loadAllRecords: async () => {
+            loadRecords: async (user) => {
                 try {
-                    const { data, error } = await supabaseClient
-                        .from('React Time')
-                        .select('*')
-                        .order('created_at', { ascending: false });
+                    const isAdmin = user.phone === '33003300' && user.surname === 'hku';
+                    let query = supabaseClient.from('React Time').select('*');
                     
+                    if (!isAdmin) {
+                        query = query.eq('Phone_number', user.phone);
+                    }
+                    
+                    const { data, error } = await query.order('created_at', { ascending: false });
                     if (error) throw error;
                     return data || [];
                 } catch (error) {
@@ -139,77 +135,104 @@
         };
 
         // --- Shared Components ---
-        const Header = ({ user, onLogout }) => (
-            <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
-                <div className="container mx-auto px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center space-x-3 sm:space-x-4">
-                        <div className="bg-blue-900 text-white p-2 rounded-lg shadow-inner shrink-0">
-                            <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                            </svg>
-                        </div>
-                        <div className="flex flex-col">
-                            <h1 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-tight leading-tight">神經科學研究中心</h1>
-                            <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.2</p>
-                        </div>
-                    </div>
-                    {user && (
-                        <div className="flex items-center space-x-4">
-                            <div className="flex flex-col items-end text-right">
-                                <p className="text-sm font-bold text-slate-800 leading-none mb-1">{user.surname} 先生/女士</p>
-                                <p className="text-xs font-medium text-slate-400 font-mono tracking-tight">{user.phone}</p>
+        const Header = ({ user, onLogout }) => {
+            const isAdmin = user && user.phone === '33003300' && user.surname === 'hku';
+            return (
+                <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+                    <div className="container mx-auto px-6 py-4 flex items-center justify-between">
+                        <div className="flex items-center space-x-3 sm:space-x-4">
+                            <div className="bg-blue-900 text-white p-2 rounded-lg shadow-inner shrink-0">
+                                <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6 sm:h-7 sm:w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                                </svg>
                             </div>
-                            <button 
-                                onClick={onLogout}
-                                className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-bold border border-slate-100 transition-colors shadow-sm"
-                            >
-                                切換受試者
-                            </button>
+                            <div className="flex flex-col">
+                                <h1 className="text-base sm:text-lg font-bold text-slate-800 uppercase tracking-tight leading-tight">
+                                    神經科學研究中心 {isAdmin && <span className="ml-1 text-[10px] bg-orange-100 text-orange-600 px-2 py-0.5 rounded-full">ADMIN</span>}
+                                </h1>
+                                <p className="text-[9px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Cloud Lab v3.6</p>
+                            </div>
                         </div>
-                    )}
-                </div>
-            </header>
-        );
+                        {user && (
+                            <div className="flex items-center space-x-4">
+                                <div className="flex flex-col items-end text-right">
+                                    <p className="text-sm font-bold text-slate-800 leading-none mb-1">{user.surname} {isAdmin ? '(管理員)' : '先生/女士'}</p>
+                                    <p className="text-xs font-medium text-slate-400 font-mono tracking-tight">{user.phone}</p>
+                                </div>
+                                <button 
+                                    onClick={onLogout}
+                                    className="px-3 py-2 bg-slate-50 hover:bg-slate-100 text-slate-500 rounded-xl text-xs font-bold border border-slate-100 transition-colors shadow-sm"
+                                >
+                                    登出
+                                </button>
+                            </div>
+                        )}
+                    </div>
+                </header>
+            );
+        };
 
         const UserRegistration = ({ onComplete }) => {
             const [surname, setSurname] = useState('');
             const [phone, setPhone] = useState('');
             const [error, setError] = useState('');
+            const [isAdminMode, setIsAdminMode] = useState(false);
 
             const handleSubmit = (e) => {
                 e.preventDefault();
-                if (!surname.trim()) return setError('請輸入您的姓氏');
-                if (!/^\d{8}$/.test(phone)) return setError('請輸入 8 位數字電話號碼');
+                const trimmedSurname = surname.trim();
+                const trimmedPhone = phone.trim();
+
+                if (!trimmedSurname) return setError('請輸入您的姓氏');
+                if (!/^\d{8}$/.test(trimmedPhone)) return setError('請輸入 8 位數字電話號碼');
                 
-                const user = { surname: surname.trim(), phone };
+                if (isAdminMode) {
+                    if (trimmedSurname.toLowerCase() !== 'hku' || trimmedPhone !== '33003300') {
+                        return setError('管理員憑證無效');
+                    }
+                }
+
+                const user = { surname: trimmedSurname, phone: trimmedPhone };
                 DataService.saveUserSession(user);
                 onComplete(user);
+            };
+
+            const toggleAdminMode = () => {
+                setIsAdminMode(!isAdminMode);
+                setError('');
             };
 
             return (
                 <div className="max-w-md mx-auto animate-fade-in py-12">
                     <div className="bg-white p-10 rounded-[2.5rem] border border-slate-200 shadow-2xl">
                         <div className="text-center mb-10">
-                            <div className="inline-flex items-center justify-center w-16 h-16 bg-blue-50 text-blue-600 rounded-2xl mb-4">
+                            <div 
+                                onDoubleClick={toggleAdminMode}
+                                className={`inline-flex items-center justify-center w-16 h-16 rounded-2xl mb-4 cursor-pointer transition-colors ${isAdminMode ? 'bg-orange-50 text-orange-600' : 'bg-blue-50 text-blue-600'}`}
+                            >
                                 <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                 </svg>
                             </div>
-                            <h2 className="text-2xl font-black text-slate-800 mb-2">受試者登錄</h2>
+                            <h2 className={`text-2xl font-black mb-2 ${isAdminMode ? 'text-orange-600' : 'text-slate-800'}`}>
+                                {isAdminMode ? '管理員登錄' : '受試者登錄'}
+                            </h2>
                             <p className="text-slate-400 text-sm">數據將自動同步至 Supabase 雲端</p>
                         </div>
 
                         <form onSubmit={handleSubmit} className="space-y-6">
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">姓氏 (Surname)</label>
-                                <input type="text" value={surname} onChange={(e) => setSurname(e.target.value)} placeholder="例：陳" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-800" />
+                                <input type="text" value={surname} onChange={(e) => setSurname(e.target.value)} placeholder={isAdminMode ? "管理員帳號" : "例：陳"} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-800" />
                             </div>
                             <div>
                                 <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest mb-2 ml-1">電話號碼 (8位數字)</label>
-                                <input type="tel" maxLength="8" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder="87654321" className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-800 tracking-[0.2em]" />
+                                <input type="tel" maxLength="8" value={phone} onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))} placeholder={isAdminMode ? "管理員電話" : "87654321"} className="w-full px-6 py-4 bg-slate-50 border border-slate-100 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all font-bold text-slate-800 tracking-[0.2em]" />
                             </div>
                             {error && <div className="p-4 bg-red-50 text-red-600 text-xs font-bold rounded-xl text-center animate-fade-in">{error}</div>}
-                            <button type="submit" className="w-full py-5 bg-slate-900 hover:bg-black text-white rounded-2xl font-black text-lg uppercase tracking-widest shadow-xl transition-all active:scale-95">確認並進入實驗</button>
+                            <button type="submit" className={`w-full py-5 rounded-2xl font-black text-lg uppercase tracking-widest shadow-xl transition-all active:scale-95 text-white ${isAdminMode ? 'bg-orange-600 hover:bg-orange-700' : 'bg-slate-900 hover:bg-black'}`}>
+                                {isAdminMode ? '管理員進入' : '確認並進入實驗'}
+                            </button>
                         </form>
                     </div>
                 </div>
@@ -219,10 +242,11 @@
         const Dashboard = ({ onSelectGame, user }) => {
             const [records, setRecords] = useState([]);
             const [isLoading, setIsLoading] = useState(true);
+            const isAdmin = user && user.phone === '33003300' && user.surname === 'hku';
 
             const fetchRecords = async () => {
                 setIsLoading(true);
-                const data = await DataService.loadAllRecords();
+                const data = await DataService.loadRecords(user);
                 setRecords(data);
                 setIsLoading(false);
             };
@@ -241,10 +265,12 @@
                 <div className="space-y-8 animate-fade-in">
                     <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl">
                         <h2 className="text-blue-800 font-bold mb-2 flex items-center text-sm uppercase tracking-wider">
-                            <span className="mr-2">💡</span> 研究指令
+                            <span className="mr-2">{isAdmin ? '👋' : '💡'}</span> {isAdmin ? '歡迎回來' : '研究指令'}
                         </h2>
                         <p className="text-blue-700 text-xs leading-relaxed opacity-80 font-medium">
-                            {user.surname} 先生/女士，請完成實驗項目。數據會自動儲存至 Supabase 數據表。
+                            {user.surname} {isAdmin ? '管理員' : '先生/女士'}，請完成實驗項目。
+                            {!isAdmin && " 以下僅顯示您的個人歷史數據。"}
+                            {isAdmin && " 您目前可以查看所有受試者的歷史紀錄數據。"}
                         </p>
                     </div>
 
@@ -262,7 +288,7 @@
                         <div className="p-6 border-b border-slate-100 flex justify-between items-center">
                             <div className="flex items-center space-x-2">
                                 <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
-                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">Supabase 即時數據庫</h3>
+                                <h3 className="text-sm font-black text-slate-800 uppercase tracking-widest">過去記錄</h3>
                             </div>
                             <button 
                                 onClick={fetchRecords} 
@@ -295,7 +321,7 @@
                                             </tr>
                                         ) : records.length === 0 ? (
                                             <tr>
-                                                <td colSpan="6" className="text-center py-20 text-slate-400">數據庫目前為空</td>
+                                                <td colSpan="6" className="text-center py-20 text-slate-400">尚無符合條件的數據紀錄</td>
                                             </tr>
                                         ) : (
                                             records.map((r, idx) => (
@@ -371,7 +397,7 @@
                 <div className="max-w-xl mx-auto animate-fade-in bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-2xl text-center">
                     <div className="flex justify-between items-center mb-8">
                         <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase transition-colors">← 返回儀表板</button>
-                        {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">同步數據至 Supabase...</span>}
+                        {isSaving && <span className="text-[10px] text-blue-500 font-bold animate-pulse">同步數據中...</span>}
                     </div>
                     <div className="mb-10 bg-slate-50 py-8 rounded-3xl border border-slate-100 shadow-inner">
                         <p className="text-slate-400 text-xs font-bold uppercase mb-2">目標時間</p>
