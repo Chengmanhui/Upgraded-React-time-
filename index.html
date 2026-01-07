@@ -1,0 +1,386 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>神經科學反應力研究中心 - Neuro-Reaction System</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+HK:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans HK', sans-serif;
+            background-color: #f8fafc;
+            user-select: none;
+            -webkit-tap-highlight-color: transparent;
+        }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; }
+    </style>
+    <!-- Babel standalone to support JSX in a single HTML file without build tools -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <script type="importmap">
+    {
+      "imports": {
+        "react": "https://esm.sh/react@19.0.0",
+        "react-dom": "https://esm.sh/react-dom@19.0.0",
+        "react-dom/client": "https://esm.sh/react-dom@19.0.0/client"
+      }
+    }
+    </script>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel" data-type="module">
+        import React, { useState, useEffect, useRef } from 'react';
+        import { createRoot } from 'react-dom/client';
+
+        // --- Constants ---
+        const COLORS = [
+            { name: '紅色', hex: '#ef4444' },
+            { name: '藍色', hex: '#3b82f6' },
+            { name: '綠色', hex: '#22c55e' },
+            { name: '黃色', hex: '#eab308' },
+            { name: '紫色', hex: '#a855f7' },
+            { name: '橙色', hex: '#f97316' }
+        ];
+
+        const STORAGE_KEY = 'neuro_research_data_v2';
+
+        const GAME_CONFIGS = {
+            TIMER: { id: 'TIMER', title: '7.77秒 時間感知測試', icon: '⏱️', color: 'bg-indigo-100 text-indigo-700' },
+            COLOR_BASIC: { id: 'COLOR_BASIC', title: '基本顏色反應測試', icon: '🔴', color: 'bg-emerald-100 text-emerald-700' },
+            COLOR_ADVANCED: { id: 'COLOR_ADVANCED', title: '進階視覺引導反應測試', icon: '🧠', color: 'bg-amber-100 text-amber-700' }
+        };
+
+        const RATING = {
+            GOOD: '優秀 (Good)',
+            SATISFACTORY: '滿意 (Satisfactory)',
+            FAIR: '尚可 (Fair)',
+            POOR: '欠佳 (Poor)'
+        };
+
+        // --- Persistence Layer ---
+        const Storage = {
+            save: (gameId, scoreLabel, stats = {}) => {
+                const data = Storage.getAll();
+                data[gameId] = {
+                    gameId,
+                    score: scoreLabel,
+                    timestamp: Date.now(),
+                    stats
+                };
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            },
+            getAll: () => {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                return saved ? JSON.parse(saved) : {};
+            }
+        };
+
+        // --- Shared Components ---
+        const Header = () => (
+            <header className="bg-white border-b border-slate-200 shadow-sm sticky top-0 z-50">
+                <div className="container mx-auto px-6 py-4 flex flex-col items-center sm:flex-row sm:justify-between">
+                    <div className="flex items-center space-x-4">
+                        <div className="bg-blue-900 text-white p-2 rounded-lg shadow-inner">
+                            <svg xmlns="http://www.w3.org/2000/svg" className="h-7 w-7" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                            </svg>
+                        </div>
+                        <div className="text-center sm:text-left">
+                            <h1 className="text-lg font-bold text-slate-800 uppercase tracking-tight">神經科學反應力研究中心</h1>
+                            <p className="text-[10px] text-slate-400 font-bold tracking-widest uppercase">Neuro-Reaction Lab v2.0 (Verified)</p>
+                        </div>
+                    </div>
+                    <div className="mt-2 sm:mt-0 px-3 py-1 bg-slate-100 rounded text-slate-400 text-[10px] font-mono">
+                        UID: #GH-LAB-2025
+                    </div>
+                </div>
+            </header>
+        );
+
+        // --- Views ---
+        const Dashboard = ({ onSelectGame }) => {
+            const [records, setRecords] = useState({});
+
+            useEffect(() => {
+                setRecords(Storage.getAll());
+            }, []);
+
+            return (
+                <div className="space-y-6 animate-fade-in">
+                    <div className="bg-blue-50 border border-blue-100 p-6 rounded-3xl">
+                        <h2 className="text-blue-800 font-bold mb-2 flex items-center text-sm uppercase tracking-wider">
+                            <span className="mr-2">💡</span> 實驗參與指南
+                        </h2>
+                        <p className="text-blue-700 text-xs leading-relaxed opacity-80">
+                            所有實驗結果將即時儲存於此裝置。請確保在光線充足、低干擾的環境下進行測試，以確保數據的學術有效性。
+                        </p>
+                    </div>
+
+                    <div className="grid gap-6 md:grid-cols-3">
+                        {Object.values(GAME_CONFIGS).map(game => (
+                            <button
+                                key={game.id}
+                                onClick={() => onSelectGame(game.id)}
+                                className="group bg-white p-6 rounded-3xl border border-slate-200 shadow-sm hover:shadow-xl hover:-translate-y-1 transition-all text-left flex flex-col h-full"
+                            >
+                                <div className={`w-14 h-14 rounded-2xl ${game.color} flex items-center justify-center text-3xl mb-4 group-hover:scale-110 transition-transform shadow-sm`}>
+                                    {game.icon}
+                                </div>
+                                <h3 className="text-lg font-bold text-slate-800 mb-2">{game.title}</h3>
+                                
+                                {records[game.id] && (
+                                    <div className="mt-auto pt-4 border-t border-slate-50">
+                                        <p className="text-[10px] text-slate-400 font-bold uppercase mb-1">最近實驗數據</p>
+                                        <p className="text-sm font-black text-indigo-600">{records[game.id].score}</p>
+                                    </div>
+                                )}
+
+                                <div className="mt-4 flex items-center text-xs font-bold text-blue-600 group-hover:translate-x-1 transition-transform uppercase tracking-widest">
+                                    開始測試 <span className="ml-2">→</span>
+                                </div>
+                            </button>
+                        ))}
+                    </div>
+                </div>
+            );
+        };
+
+        const TimerGame = ({ onBack }) => {
+            const [time, setTime] = useState(0);
+            const [isRunning, setIsRunning] = useState(false);
+            const [result, setResult] = useState(null);
+            const requestRef = useRef();
+            const startTimeRef = useRef(0);
+
+            const animate = (timestamp) => {
+                if (!startTimeRef.current) startTimeRef.current = timestamp;
+                const progress = (timestamp - startTimeRef.current) / 1000;
+                setTime(progress);
+                requestRef.current = requestAnimationFrame(animate);
+            };
+
+            const toggle = () => {
+                if (isRunning) {
+                    cancelAnimationFrame(requestRef.current);
+                    setIsRunning(false);
+                    const diff = Math.abs(time - 7.77);
+                    let rating = diff < 0.2 ? RATING.GOOD : (diff < 0.5 ? RATING.SATISFACTORY : (diff < 1.0 ? RATING.FAIR : RATING.POOR));
+                    setResult({ rating, final: time.toFixed(3) });
+                    Storage.save('TIMER', `${time.toFixed(3)}s (${rating})`, { time, diff });
+                } else {
+                    setTime(0);
+                    setResult(null);
+                    startTimeRef.current = performance.now();
+                    setIsRunning(true);
+                    requestRef.current = requestAnimationFrame(animate);
+                }
+            };
+
+            return (
+                <div className="max-w-xl mx-auto animate-fade-in bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-2xl text-center">
+                    <div className="flex justify-between items-center mb-8">
+                        <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase tracking-widest transition-colors">← 返回儀表板</button>
+                        <span className="text-xs font-bold text-slate-300 uppercase tracking-widest">TEST_ID: T777</span>
+                    </div>
+
+                    <div className="mb-10 bg-slate-50 py-8 rounded-3xl border border-slate-100 shadow-inner">
+                        <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-2">實驗目標</p>
+                        <p className="text-6xl font-black text-slate-800 tracking-tighter">7.77 <span className="text-2xl font-bold opacity-30">SEC</span></p>
+                    </div>
+
+                    <div className="relative h-64 flex flex-col items-center justify-center mb-10 overflow-hidden">
+                        <div className="text-[7rem] font-mono tabular-nums leading-none font-bold text-slate-900 tracking-tighter">
+                            {time.toFixed(2)}
+                        </div>
+                        {result && (
+                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-white/95 backdrop-blur-sm rounded-3xl animate-fade-in">
+                                <p className="text-slate-400 text-xs font-bold uppercase tracking-widest mb-1">測量結果</p>
+                                <p className="text-5xl font-black text-slate-900 mb-2">{result.final} <span className="text-xl">秒</span></p>
+                                <p className={`text-xl font-bold px-4 py-1 rounded-full ${result.rating === RATING.GOOD ? 'bg-emerald-100 text-emerald-700' : 'bg-blue-100 text-blue-700'}`}>
+                                    {result.rating}
+                                </p>
+                            </div>
+                        )}
+                    </div>
+
+                    <button
+                        onClick={toggle}
+                        className={`w-full py-6 rounded-3xl font-black text-xl uppercase tracking-widest shadow-lg transition-all active:scale-95 ${isRunning ? 'bg-red-600 text-white shadow-red-200' : 'bg-slate-900 text-white shadow-slate-200'}`}
+                    >
+                        {isRunning ? '立即停止' : (result ? '重新測試' : '開始計時')}
+                    </button>
+                </div>
+            );
+        };
+
+        const ColorGame = ({ onBack, isAdvanced }) => {
+            const [gameState, setGameState] = useState('IDLE');
+            const [targetColor, setTargetColor] = useState(COLORS[0]);
+            const [currentColor, setCurrentColor] = useState(null);
+            const [stats, setStats] = useState({ hits: 0, total: 0, errors: 0 });
+            const [timeLeft, setTimeLeft] = useState(20);
+            
+            const timerRef = useRef();
+            const flashRef = useRef();
+            const activeRef = useRef(false);
+            const lastProcessedRef = useRef(false);
+
+            const start = () => {
+                const target = COLORS[Math.floor(Math.random() * COLORS.length)];
+                setTargetColor(target);
+                setStats({ hits: 0, total: 0, errors: 0 });
+                setTimeLeft(20);
+                setGameState('PLAYING');
+                activeRef.current = true;
+                loop();
+            };
+
+            const loop = () => {
+                const cycle = () => {
+                    if (!activeRef.current) return;
+                    const next = COLORS[Math.floor(Math.random() * COLORS.length)];
+                    setCurrentColor(next);
+                    lastProcessedRef.current = false;
+                    if (next.hex === targetColor.hex) setStats(prev => ({ ...prev, total: prev.total + 1 }));
+                    
+                    const isi = 750 + Math.random() * 600;
+                    flashRef.current = setTimeout(cycle, isi);
+                };
+
+                timerRef.current = setInterval(() => {
+                    setTimeLeft(prev => {
+                        if (prev <= 1) {
+                            end();
+                            return 0;
+                        }
+                        return prev - 1;
+                    });
+                }, 1000);
+                cycle();
+            };
+
+            const end = () => {
+                activeRef.current = false;
+                clearInterval(timerRef.current);
+                clearTimeout(flashRef.current);
+                setGameState('FINISHED');
+            };
+
+            const handleHit = () => {
+                if (gameState !== 'PLAYING' || lastProcessedRef.current || !currentColor) return;
+                lastProcessedRef.current = true;
+                if (currentColor.hex === targetColor.hex) {
+                    setStats(prev => ({ ...prev, hits: prev.hits + 1 }));
+                } else {
+                    setStats(prev => ({ ...prev, errors: prev.errors + 1 }));
+                }
+            };
+
+            useEffect(() => {
+                if (gameState === 'FINISHED') {
+                    const score = `${stats.hits}次正確 (${Math.round((stats.hits/Math.max(1, stats.total))*100)}%)`;
+                    Storage.save(isAdvanced ? 'COLOR_ADVANCED' : 'COLOR_BASIC', score, stats);
+                }
+            }, [gameState]);
+
+            useEffect(() => () => end(), []);
+
+            return (
+                <div className="max-w-xl mx-auto animate-fade-in bg-white p-8 rounded-[2.5rem] border border-slate-200 shadow-2xl text-center">
+                    <div className="flex justify-between items-center mb-8">
+                        <button onClick={onBack} className="text-slate-400 hover:text-slate-800 text-xs font-bold uppercase tracking-widest transition-colors">← 返回</button>
+                        <div className="bg-blue-50 px-4 py-1 rounded-full text-blue-600 font-black tabular-nums text-sm">
+                            {timeLeft}S
+                        </div>
+                    </div>
+
+                    {gameState === 'IDLE' ? (
+                        <div className="py-16">
+                            <h2 className="text-2xl font-black text-slate-800 mb-4">{isAdvanced ? '認知引導反應測試' : '視覺刺激基礎測試'}</h2>
+                            <p className="text-slate-400 text-sm mb-10 max-w-xs mx-auto">點擊按鈕開始為期 20 秒的連續性能反應實驗 (CPT)。</p>
+                            <button onClick={start} className="bg-indigo-600 hover:bg-indigo-700 text-white px-12 py-5 rounded-3xl font-black text-xl shadow-xl shadow-indigo-100 transition-all active:scale-95">開始測試</button>
+                        </div>
+                    ) : gameState === 'PLAYING' ? (
+                        <div className="flex flex-col items-center">
+                            <div className="mb-6 flex items-center space-x-3 bg-slate-50 px-5 py-2 rounded-2xl border border-white shadow-sm">
+                                <span className="text-slate-400 text-[10px] font-black uppercase tracking-widest">目標刺激:</span>
+                                <div className="w-4 h-4 rounded-full shadow-sm" style={{ backgroundColor: targetColor.hex }}></div>
+                                <span className="font-bold text-slate-800">{targetColor.name}</span>
+                            </div>
+
+                            <div className="h-80 w-full max-w-sm flex flex-col items-center justify-center bg-slate-50 rounded-[2.5rem] border-2 border-dashed border-slate-200 mb-8 relative shadow-inner overflow-hidden">
+                                <div className="flex flex-col items-center space-y-6">
+                                    {isAdvanced && currentColor && (
+                                        <div className="text-5xl font-black text-slate-800 animate-fade-in drop-shadow-md z-10 select-none">
+                                            {currentColor.name}
+                                        </div>
+                                    )}
+                                    <div 
+                                        className="w-40 h-40 rounded-[2.5rem] shadow-2xl transition-all duration-100 transform active:scale-95 ring-8 ring-white/30"
+                                        style={{ backgroundColor: currentColor?.hex || 'transparent' }}
+                                        key={currentColor?.hex}
+                                    ></div>
+                                </div>
+                            </div>
+
+                            <button
+                                onMouseDown={handleHit}
+                                onTouchStart={(e) => { e.preventDefault(); handleHit(); }}
+                                className="w-full max-w-sm bg-slate-900 hover:bg-black text-white font-black py-8 rounded-[2rem] shadow-2xl transition-all active:scale-90 text-2xl uppercase tracking-widest ring-offset-4 ring-indigo-500 focus:ring-4"
+                            >
+                                反應 (HIT)
+                            </button>
+                        </div>
+                    ) : (
+                        <div className="py-6 animate-fade-in">
+                            <h3 className="text-2xl font-black text-slate-900 mb-8">數據採集完成</h3>
+                            <div className="grid grid-cols-3 gap-4 mb-10">
+                                <div className="bg-emerald-50 p-5 rounded-3xl border border-emerald-100 shadow-sm">
+                                    <p className="text-emerald-600 text-[10px] font-bold uppercase mb-1">正確反應</p>
+                                    <p className="text-4xl font-black text-emerald-700">{stats.hits}</p>
+                                </div>
+                                <div className="bg-slate-50 p-5 rounded-3xl border border-slate-100 shadow-sm">
+                                    <p className="text-slate-600 text-[10px] font-bold uppercase mb-1">目標總數</p>
+                                    <p className="text-4xl font-black text-slate-700">{stats.total}</p>
+                                </div>
+                                <div className="bg-red-50 p-5 rounded-3xl border border-red-100 shadow-sm">
+                                    <p className="text-red-600 text-[10px] font-bold uppercase mb-1">錯誤按壓</p>
+                                    <p className="text-4xl font-black text-red-700">{stats.errors}</p>
+                                </div>
+                            </div>
+                            <button onClick={start} className="bg-slate-900 text-white px-12 py-5 rounded-3xl font-black text-lg shadow-xl shadow-slate-100 hover:bg-black transition-all">重新測試</button>
+                        </div>
+                    )}
+                </div>
+            );
+        };
+
+        const App = () => {
+            const [view, setView] = useState('DASHBOARD');
+
+            return (
+                <div className="min-h-screen bg-slate-50 text-slate-900 flex flex-col antialiased">
+                    <Header />
+                    <main className="flex-grow container mx-auto px-4 py-12 max-w-4xl">
+                        {view === 'DASHBOARD' && <Dashboard onSelectGame={setView} />}
+                        {view === 'TIMER' && <TimerGame onBack={() => setView('DASHBOARD')} />}
+                        {view === 'COLOR_BASIC' && <ColorGame isAdvanced={false} onBack={() => setView('DASHBOARD')} />}
+                        {view === 'COLOR_ADVANCED' && <ColorGame isAdvanced={true} onBack={() => setView('DASHBOARD')} />}
+                    </main>
+                    <footer className="py-8 text-center">
+                        <p className="text-slate-300 text-[10px] font-bold tracking-widest uppercase">
+                            Neuro-Science Research Laboratory System • © 2025 Standardized Dataset
+                        </p>
+                    </footer>
+                </div>
+            );
+        };
+
+        const root = createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
